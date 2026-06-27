@@ -15,6 +15,7 @@ The **B2B Lead Qualifier** is an agentic AI pipeline that eliminates hours of ma
 
 **The result:** A clean, enriched CSV containing only your best leads, complete with AI-generated research summaries and ready-to-send cold emails.
 
+This project was developed as part of the Google × Kaggle 5-Day AI Agents & Vibe Coding Capstone, demonstrating an AI agent workflow that combines deterministic business logic with Gemini-powered research and personalized outreach generation.
 ---
 
 ## 🎯 Problem Statement
@@ -100,8 +101,8 @@ B2B-lead-qualifier/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/B2B-lead-qualifier.git
-cd B2B-lead-qualifier
+git clone https://github.com/Eshwar-jr/b2b-lead-qualifier-agent.git
+cd b2b-lead-qualifier-agent
 ```
 
 ### 2. Install Dependencies
@@ -214,4 +215,4 @@ This project is open source under the [MIT License](LICENSE).
 
 ---
 
-*Made with ❤️ and Gemini AI*
+Developed as part of the Google x Kaggle 5 day AI Agents & Vibe Coding Capstone Project(2026).
