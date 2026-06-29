@@ -10,6 +10,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+import time
 
 # ── Constants ────────────────────────────────────────────────────────────────
 BASE_DIR        = Path(__file__).parent
@@ -42,6 +43,23 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
+def _gemini_generate(contents: str, config):
+    """Generate Gemini content with automatic retries on 503 errors."""
+    max_retries = 3
+    delay = 1
+    for attempt in range(max_retries):
+        try:
+            return client.models.generate_content(
+                model=MODEL, contents=contents, config=config
+            )
+        except Exception as exc:
+            # Retry on service unavailable / 503 errors
+            if attempt < max_retries - 1 and ("503" in str(exc) or "ServiceUnavailable" in str(exc)):
+                time.sleep(delay)
+                delay *= 2
+                continue
+            raise
+
 
 # ── Lead Scoring (Deterministic Gate) ────────────────────────────────────────
 def score_lead(row: pd.Series) -> dict:
@@ -72,12 +90,24 @@ def score_lead(row: pd.Series) -> dict:
 
 
 # ── Gemini Agent Calls ────────────────────────────────────────────────────────
-def research_company(industry: str, employee_count) -> str:
-    """Call Research Agent. Returns a clean text summary."""
-    prompt = f"Analyze a {industry} company with {employee_count} employees."
-    response = client.models.generate_content(
-        model=MODEL, contents=prompt, config=RESEARCH_CONFIG
-    )
+def research_company(company: str, website: str, industry: str, employee_count) -> str:
+    """Call Research Agent. Returns a clean text summary using detailed prompt."""
+    research_prompt = f"""
+Research the following company.
+
+Company Name: {company}
+Website: {website}
+Industry: {industry}
+Employee Count: {employee_count}
+
+Return JSON in this format:
+{{
+    "summary": "A concise business summary mentioning the company name."
+}}
+
+Do not use placeholders.
+"""
+    response = _gemini_generate(research_prompt, RESEARCH_CONFIG)
     try:
         data = json.loads(response.text)
         return data.get("summary", response.text)
@@ -85,15 +115,34 @@ def research_company(industry: str, employee_count) -> str:
         return response.text or ""
 
 
-def write_outreach_email(contact: str, company: str, summary: str) -> str:
-    """Call Email Agent. Returns a ready-to-send cold email string."""
-    prompt = (
-        f"Write an outbound email to {contact} at {company} "
-        f"using this company summary: {summary}"
-    )
-    response = client.models.generate_content(
-        model=MODEL, contents=prompt, config=EMAIL_CONFIG
-    )
+def write_outreach_email(row: pd.Series, summary: str) -> str:
+    """Call Email Agent. Returns a ready-to-send cold email string using detailed prompt and safety instruction."""
+    email_prompt = f"""
+You are an expert B2B sales copywriter.
+
+Write a professional cold outreach email using the information below.
+
+Company Name: {row.get('Company Name', '')}
+Contact Person: {row.get('Target Contact Name', '')}
+Industry: {row.get('Industry', '')}
+Employee Count: {row.get('Employee Count', '')}
+
+Research Summary:
+{summary}
+
+Instructions:
+- Address the recipient by their actual name.
+- Mention the company name naturally.
+- Mention one relevant insight from the research summary.
+- Keep the email to 3 short paragraphs.
+- Keep the tone friendly and professional.
+- Do NOT use placeholders like [Company Name], [Contact Name], or [Industry].
+- Return only the email text.
+
+If any information is unavailable, write naturally.
+Never invent placeholders.
+"""
+    response = _gemini_generate(email_prompt, EMAIL_CONFIG)
     return response.text.strip() if response.text else ""
 
 
@@ -121,8 +170,8 @@ def run_b2b_agent_pipeline() -> None:
         print(f"\n✅ Evaluating: {company} | Score: {evaluation['score']} | Activating Gemini Agents...")
 
         try:
-            summary = research_company(row["Industry"], row["Employee Count"])
-            email   = write_outreach_email(row["Target Contact Name"], company, summary)
+            summary = research_company(company, row.get('Website', ''), row["Industry"], row["Employee Count"])
+            email   = write_outreach_email(row, summary)
         except Exception as exc:
             print(f"  ⚠️  Gemini API error for {company}: {exc}. Skipping.")
             continue
