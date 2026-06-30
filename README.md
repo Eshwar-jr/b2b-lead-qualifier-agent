@@ -94,6 +94,17 @@ B2B-lead-qualifier/
 └── 📄 README.md
 ```
 
+### Error Handling & Reliability
+
+To improve reliability, the application includes basic error handling throughout the workflow. If a Gemini API request fails due to temporary service unavailability (such as HTTP 503), the error is caught, logged to the console, and the affected lead is skipped so that the remaining leads continue processing without interruption.
+
+The system also validates the input CSV before processing. If required columns are missing or a row contains incomplete or malformed data, that lead is skipped with an informative message rather than causing the entire workflow to fail. This approach ensures that invalid input or temporary API issues do not interrupt the processing of other valid leads.
+
+
+### Business Impact
+
+This solution streamlines the early stages of the B2B sales pipeline by automating lead qualification, company research, and personalized outreach generation. By filtering low-value prospects before invoking the language model, the system reduces unnecessary API usage while allowing sales teams to focus on higher-quality opportunities. The generated research summaries and personalized emails reduce repetitive manual work, improve consistency, and help sales representatives reach qualified prospects more efficiently.
+
 ---
 
 ## 🚀 Quick Start
